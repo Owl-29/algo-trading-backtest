@@ -1,135 +1,164 @@
-# 📈 Algo Trading Backtest
-### Mean-Reversion Strategy Research, Freshman Quant Project
+# Algo Trading Backtest
 
-A backtesting framework I built to test three mean-reversion trading strategies against buy-and-hold across different asset types, market conditions, and parameter settings. Built with Python, `yfinance`, `pandas`, `numpy`, and `matplotlib`.
+A Python backtesting framework that tests three mean-reversion trading strategies against buy-and-hold across multiple asset types, market regimes, and parameter settings.
 
----
+Built with `yfinance`, `pandas`, `numpy`, `matplotlib`, and `seaborn`.
 
-## The Question I Was Trying to Answer
+-----
 
-Do simple mean-reversion rules actually work in practice, and does the answer change depending on what kind of asset you're trading or what the market is doing?
+## Research Question
 
----
+Do simple mean-reversion trading rules work in practice, and does the answer change depending on the asset type or market environment?
 
-## Strategies I Tested
+-----
 
-| Strategy | Logic |
-|---|---|
-| **Buy & Hold** | Benchmark, buy at the start and hold the whole time |
-| **Red Days** | Buy after N consecutive down days, hold for X days |
-| **Drop / Rise** | Buy on a single-day drop ≥ X%, sell when price rises Y% from entry |
-| **Z-Score Mean Reversion** | Buy when the rolling Z-score is very negative (price is statistically cheap, sell when it normalizes |
+## Strategies
 
----
+|Strategy                  |Logic                                                                                                |
+|--------------------------|-----------------------------------------------------------------------------------------------------|
+|**Buy & Hold**            |Buy at the start and hold the whole time. Benchmark.                                                 |
+|**Red Days**              |Buy after N consecutive down days, hold for X days                                                   |
+|**Drop / Rise**           |Buy on a single-day drop of at least X%, sell when price rises Y% from entry                         |
+|**Z-Score Mean Reversion**|Buy when the rolling Z-score is very negative (price is statistically cheap), sell when it normalizes|
+
+-----
 
 ## Tickers
 
-| Ticker | Type |
-|---|---|
-| SPY | Stable growth ETF |
-| MSFT | Large-cap growth |
-| GOOGL | Large-cap growth |
-| NVDA | High-risk growth |
-| HGRAF | Speculative penny stock |
+|Ticker|Type                   |
+|------|-----------------------|
+|SPY   |Stable growth ETF      |
+|MSFT  |Large-cap growth       |
+|GOOGL |Large-cap growth       |
+|NVDA  |High-risk growth       |
+|HGRAF |Speculative penny stock|
 
-I also ran a separate test on an alternative universe: `GLD, TLT, BTC-USD, XOM, AMZN`
+Alternative universe tested: `GLD, TLT, BTC-USD, XOM, AMZN`
 
----
+-----
 
-## How It Works
+## Methodology
 
-1. Pull historical daily close prices via `yfinance`
-2. Compute daily returns and cumulative portfolio growth
-3. Apply each strategy's buy/sell logic
-4. Simulate trades with configurable transaction costs
-5. Compare everything to buy-and-hold using both return and risk metrics
-6. Run across multiple tickers, parameter settings, and date ranges
+1. Pull historical daily close prices from Yahoo Finance
+1. Compute daily returns and cumulative portfolio growth
+1. Apply each strategy’s buy/sell logic with configurable transaction costs
+1. Compare each strategy to buy-and-hold using return and risk metrics
+1. Repeat across multiple tickers, parameter settings, and date ranges
 
-I used the same parameters across all tickers intentionally, no per-stock tuning, so the comparison is fair and the results aren't just overfitted to one asset.
+The same parameters are applied across all tickers with no per-stock tuning, so results are directly comparable.
 
----
+-----
 
-## Metrics I'm Tracking
+## Metrics Tracked
 
 - Final portfolio value and profit/loss
-- Total return
-- Sharpe ratio (annualised, risk-free rate = 0)
-- Average daily return + daily volatility
+- Total return and annualised return
+- Sharpe ratio (risk-adjusted, uses current risk-free rate)
+- Calmar ratio (annualised return divided by max drawdown)
+- Average daily return and daily volatility
 - Max drawdown
 - Signal count, completed trades, win rate
 
----
+-----
 
-## Runs
+## Analysis Cells
 
-| Run | What I was testing | Date Range |
-|---|---|---|
-| `baseline` | Standard params, main tickers | 2020–today |
-| `long_term` | Patient params (3 red days, drop 3%/rise 5%) | 2020–today |
-| `short_term` | Aggressive params (1 red day, drop 1%/rise 1.5%) | 2020–today |
-| `bull_market` | Pre-COVID calm bull run | 2017–2020 |
-| `covid_era` | COVID crash + recovery | 2020–2021 |
-| `inflation_bear` | Rate hikes + bear market | 2022–2023 |
-| `alt_assets` | Gold, bonds, BTC, oil, Amazon | 2020–today |
-| `no_cost` | 0% transaction cost | 2020–today |
-| `high_cost` | 0.5% per-trade cost | 2020–today |
+Beyond the main backtest, the notebook includes four additional analysis cells that run after the main results:
 
----
+**Strategy Correlation** — heatmap showing how correlated the three strategies are with each other per ticker. Strategies with correlation above 0.7 are not meaningfully diversifying each other.
 
-## What I Found
+**Parameter Sensitivity Grid** — automatically tests Drop/Rise across 25 combinations of buy drop and sell rise thresholds. A robust strategy shows positive Sharpe across a range of parameter values. If only one cell is green, the results are likely overfitted.
 
-### Red Days never worked. Not once.
-This was probably the clearest result, the consecutive red days strategy lost money in literally every single test. Every ticker, every run, every parameter variation. Average total return was −80.6%. My guess is it gets crushed in trending markets because it keeps buying during downtrends, and in volatile markets it gets whipsawed constantly. I went in thinking this might work as a short-term bounce strategy. It doesn't.
+**Walk-Forward Test** — splits each ticker’s data 70/30. Parameters are chosen on the training set and then applied to the unseen test set. If a strategy holds up on the test set, that’s genuine signal. If it collapses, it was memorizing the past.
 
-### Drop / Rise was the best active strategy
-93.7% win rate across all completed trades. It consistently made money by buying sharp single-day drops and waiting for a specific recovery target before selling. It worked best on volatile assets, NVDA and HGRAF, where panic selling is more common and reversals tend to follow. On the aggressive short_term run, it returned +3,773% on HGRAF, though HGRAF is a penny stock with unreliable data so I'd take that number with a grain of salt.
+**Monte Carlo Simulation** — shuffles the actual trade returns 1000 times and checks whether random chance could have produced the same result. p-value below 0.05 means the result is statistically meaningful. p-value above 0.15 means it could easily be luck.
 
-### Z-Score actually shone during the bear market
-During the inflation/bear era (2022–2023), Z-Score outperformed buy-and-hold on a risk-adjusted basis. Sharpe of 1.12 on MSFT and 0.77 on GOOGL, compared to buy-and-hold Sharpes of 0.37 and 0.16 for those same tickers in that period. Makes sense in hindsight, mean reversion needs prices to move in both directions to generate signals, and choppy bear markets provide exactly that.
+-----
 
-### Buy & Hold still won overall, but not in every regime
-In the full baseline run (2020–today), buy-and-hold dominated because of NVDA (+2,850% over the period) and GOOGL (+368%). Hard to beat that. But in the inflation/bear era, buy-and-hold averaged only +8% across tickers while Drop/Rise averaged +17% and Z-Score averaged +22%. So the active strategies didn't fail, they just need the right environment.
+## Findings
 
-### Transaction costs barely mattered
-Comparing 0%, 0.1%, and 0.5% per-trade costs: Drop/Rise returned 7.23%, 7.61%, and 7.28% respectively. Almost no difference. The strategies don't trade often enough for costs to compound badly, which is a good sign for robustness.
+### Baseline (2020 to today, standard parameters)
 
-### The alt asset run was interesting
-Drop/Rise averaged +155% on the alternative universe, mostly driven by BTC and XOM. XOM was the one ticker where Drop/Rise consistently beat buy-and-hold, probably because oil stocks have more predictable cyclical volatility than tech.
+[![baseline profit loss](charts/baseline_profit_loss_bar.png)](charts/baseline_profit_loss_bar.png)
 
----
+Buy and hold outperformed all active strategies, largely driven by NVDA (+2,850%) and GOOGL (+368%) over the period. Drop/Rise was the closest active competitor, achieving a 93.7% win rate across completed trades. Red Days lost money on every single ticker.
+
+### Parameter Sensitivity: Baseline vs Long-Term vs Short-Term
+
+Running the same tickers from 2020 to today with different parameter settings showed that the Drop/Rise strategy is fairly robust across configurations. The short-term aggressive run (1% drop, 1.5% rise) produced higher raw returns on volatile tickers like HGRAF but with more noise. The long-term patient run (3% drop, 5% rise) was more selective and generated fewer trades. Red Days failed under all three parameter sets.
+
+### Bull Market (2017 to 2020)
+
+[![bull market profit loss](charts/bull_market_profit_loss_bar.png)](charts/bull_market_profit_loss_bar.png)
+
+In the calm pre-COVID bull run, buy and hold dominated across all tickers. Drop/Rise still produced positive returns but could not match the consistent upward momentum of the market. Z-Score was competitive on MSFT and GOOGL but underperformed on NVDA and TSLA where price trends were stronger than mean-reversion patterns.
+
+### COVID Era (2020 to 2021)
+
+[![covid era profit loss](charts/covid_era_profit_loss_bar.png)](charts/covid_era_profit_loss_bar.png)
+
+The COVID crash followed by a V-shaped recovery was a strong environment for Drop/Rise. Sharp single-day drops during the March 2020 crash created exactly the kind of entry signals the strategy looks for, and the rapid recovery meant those trades closed profitably. TSLA and NVDA showed the biggest gains. Red Days still lost money across the board.
+
+### Inflation and Bear Market (2022 to 2023)
+
+[![inflation bear profit loss](charts/inflation_bear_profit_loss_bar.png)](charts/inflation_bear_profit_loss_bar.png)
+
+This was the most notable regime. Buy and hold averaged only +8% across tickers while Drop/Rise averaged +17% and Z-Score averaged +22%. Z-Score achieved a Sharpe of 1.12 on MSFT and 0.77 on GOOGL, compared to buy-and-hold Sharpes of 0.37 and 0.16 for the same tickers. Choppy, two-sided price movement in bear markets is exactly the environment mean-reversion strategies are designed for.
+
+[![NVDA baseline](charts/baseline_NVDA_comparison.png)](charts/baseline_NVDA_comparison.png)
+
+### Alternative Assets (GLD, TLT, BTC-USD, XOM, AMZN)
+
+[![alt assets profit loss](charts/alt_assets_profit_loss_bar.png)](charts/alt_assets_profit_loss_bar.png)
+
+Drop/Rise averaged +155% on the alternative universe, mostly driven by BTC and XOM. XOM was the standout: Drop/Rise consistently beat buy and hold on Exxon, likely because energy stocks have more predictable cyclical volatility than tech stocks. TLT (long-term bonds) was the worst performer across all strategies, reflecting the sustained rate-hike-driven decline in bond prices over the period.
+
+### Transaction Cost Stress Test
+
+Comparing 0%, 0.1%, and 0.5% per-trade costs, Drop/Rise returned 7.23%, 7.61%, and 7.28% respectively. Almost no difference. The strategies do not trade frequently enough for costs to compound significantly, which suggests they are robust to realistic friction.
+
+-----
+
+## The Red Days Problem
+
+Worth calling out separately: the consecutive red days strategy produced negative returns in 100% of cases across all 9 runs, all tickers, and all parameter variations. Average total return was -80.6%. The strategy essentially keeps buying into downtrends in trending markets and gets whipsawed in volatile ones. This is a meaningful null result and one of the clearest takeaways from the project.
+
+-----
 
 ## Limitations
 
-- No position sizing, strategies are all-in or all-out, which isn't realistic
-- Parameters were chosen manually, not optimised, so there's no guarantee the best settings were found
-- HGRAF data from Yahoo Finance may not be reliable, penny stock results should be treated carefully
+- No position sizing, strategies are fully invested or fully in cash
+- Parameters were selected manually, not optimised
+- HGRAF penny stock data from Yahoo Finance may not be reliable
 - No short selling, strategies only go long
-- All tickers are known successful companies, a random stock universe would probably show weaker results
+- All tickers are known successful companies, a random universe would likely show weaker results
 
----
+-----
 
 ## How to Run
 
-```bash
+```
 git clone https://github.com/Owl-29/algo-trading-backtest.git
 cd algo-trading-backtest
-pip install yfinance pandas numpy matplotlib
+pip install yfinance pandas numpy matplotlib seaborn
 jupyter lab Algo_Trading_Backtest.ipynb
 ```
 
-The notebook will prompt you for all inputs, tickers, dates, parameters, transaction cost. Results append to `master_strategy_summary.csv` so runs accumulate over time.
+Run Cell 3 first with your inputs. Then run any of the four analysis cells in any order — they all use variables created by Cell 3.
 
----
+The notebook prompts for all inputs at runtime. Results append to the master CSV so multiple runs accumulate over time.
+
+-----
 
 ## Output Files
 
-| File | What's in it |
-|---|---|
-| `master_strategy_summary.csv` | All results, one row per ticker per strategy per run |
-| `master_strategy2_trade_log.csv` | Individual trade log for Drop/Rise |
-| `master_strategy3_trade_log.csv` | Individual trade log for Z-Score |
-| `charts/` | PNG charts for every ticker and run |
+|File                            |Contents                                            |
+|--------------------------------|----------------------------------------------------|
+|`master_strategy_summary.csv`   |All results, one row per ticker per strategy per run|
+|`master_strategy2_trade_log.csv`|Individual trade log for Drop/Rise                  |
+|`master_strategy3_trade_log.csv`|Individual trade log for Z-Score                    |
+|`charts/`                       |PNG charts for every ticker and run                 |
 
----
+-----
 
-*Freshman quant research project, Lehigh University*
+*Undergraduate research project, Lehigh University*
